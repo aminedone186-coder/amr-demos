@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AMR Predictor Demo</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background: #f0f2f6; display: flex; justify-content: center; padding: 2rem; }
+        .app { max-width: 1200px; width: 100%; background: white; border-radius: 2rem; box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow: hidden; }
+        .header { background: #0e1117; color: white; padding: 2rem; }
+        .header h1 { font-size: 2.5rem; margin-bottom: 0.5rem; }
+        .header p { color: #9aa0a6; }
+        .main { display: flex; padding: 2rem; gap: 2rem; flex-wrap: wrap; }
+        .sidebar { flex: 1; min-width: 250px; background: #f9f9fb; padding: 1.5rem; border-radius: 1rem; }
+        .content { flex: 3; min-width: 300px; }
+        .sidebar h2 { margin-bottom: 1rem; font-size: 1.2rem; }
+        select, button { width: 100%; padding: 0.8rem; margin: 0.5rem 0; border: 1px solid #ddd; border-radius: 0.5rem; font-size: 1rem; }
+        button { background: #0e1117; color: white; border: none; cursor: pointer; font-weight: bold; }
+        button:hover { background: #2c313a; }
+        .tabs { display: flex; border-bottom: 2px solid #ddd; margin-bottom: 2rem; }
+        .tab { padding: 0.8rem 1.5rem; cursor: pointer; border-bottom: 3px solid transparent; }
+        .tab.active { border-bottom-color: #0e1117; font-weight: bold; }
+        .tab-pane { display: none; }
+        .tab-pane.active { display: block; }
+        .input-section { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
+        .genes { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 0.5rem; margin: 1rem 0; }
+        .genes label { display: flex; align-items: center; gap: 0.5rem; }
+        .result { background: #e8f0fe; padding: 1.5rem; border-radius: 1rem; margin-top: 2rem; text-align: center; }
+        .result .pred { font-size: 2rem; font-weight: bold; margin: 0.5rem 0; }
+        .result .conf { font-size: 1.2rem; color: #1e3a8a; }
+        .progress { height: 20px; background: #ddd; border-radius: 10px; margin: 1rem 0; overflow: hidden; }
+        .progress-bar { height: 100%; background: #0e1117; width: 0%; }
+        .importance { margin-top: 2rem; }
+        .bar-item { display: flex; align-items: center; margin: 0.5rem 0; }
+        .bar-label { width: 80px; }
+        .bar-line { flex: 1; height: 20px; background: #e0e0e0; border-radius: 10px; overflow: hidden; }
+        .bar-fill { height: 100%; background: #0e1117; }
+        .footer { background: #f9f9fb; padding: 1rem 2rem; text-align: center; color: #666; }
+    </style>
+</head>
+<body>
+<div class="app">
+    <div class="header">
+        <h1>🧬 Antibiotic Resistance Predictor</h1>
+        <p>Predict resistance from gene presence data (demo version)</p>
+    </div>
+    <div class="main">
+        <div class="sidebar">
+            <h2>⚙️ Settings</h2>
+            <label for="antibiotic">Select Antibiotic</label>
+            <select id="antibiotic">
+                <option value="Ciprofloxacin">Ciprofloxacin</option>
+                <option value="Ampicillin">Ampicillin</option>
+                <option value="Gentamicin">Gentamicin</option>
+                <option value="Ceftazidime">Ceftazidime</option>
+                <option value="Cefotaxime">Cefotaxime</option>
+            </select>
+        </div>
+        <div class="content">
+            <div class="tabs">
+                <div class="tab active" onclick="showTab('input')">📤 Input Data</div>
+                <div class="tab" onclick="showTab('prediction')">📊 Prediction</div>
+                <div class="tab" onclick="showTab('tutorial')">📚 Tutorial</div>
+            </div>
+
+            <!-- Input Data Tab -->
+            <div id="input" class="tab-pane active">
+                <h2>Enter Gene Presence Data</h2>
+                <div class="input-section">
+                    <div>
+                        <h3>Option 1: Upload File</h3>
+                        <input type="file" accept=".csv">
+                        <p style="margin-top:1rem; color:#999;">Demo: file upload is simulated</p>
+                    </div>
+                    <div>
+                        <h3>Option 2: Manual Entry</h3>
+                        <div class="genes" id="genes"></div>
+                        <label>Year of isolation: <input type="number" value="2020" min="2000" max="2025" style="width:100px;"></label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Prediction Tab -->
+            <div id="prediction" class="tab-pane">
+                <h2>Prediction Results</h2>
+                <button onclick="predict()">🔮 Predict Resistance</button>
+                <div id="result" class="result" style="display:none;">
+                    <div class="pred" id="predictionText">RESISTANT</div>
+                    <div class="conf" id="confidence">Confidence: 87%</div>
+                    <div class="progress"><div class="progress-bar" id="progressBar" style="width:87%"></div></div>
+                    <div class="importance">
+                        <h3>Top predictive genes</h3>
+                        <div id="importanceBars"></div>
+                    </div>
+                    <p style="margin-top:1rem; color:#999;">Demo mode – replace with trained model</p>
+                </div>
+            </div>
+
+            <!-- Tutorial Tab -->
+            <div id="tutorial" class="tab-pane">
+                <h2>📖 Train Your Own Model</h2>
+                <p>Follow the <a href="https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1010958" target="_blank">PLOS Computational Biology tutorial</a> to train a real model.</p>
+                <p><strong>Dataset:</strong> 1,936 <em>E. coli</em> isolates, gene presence-absence for 12 antibiotics.</p>
+            </div>
+        </div>
+    </div>
+    <div class="footer">
+        Gomel State Medical University
+    </div>
+</div>
+
+<script>
+    // Generate gene checkboxes
+    const geneList = ["gyrA","parC","ampC","blaTEM","blaCTX-M","tetA","aac(3)-II","dfrA"];
+    const genesDiv = document.getElementById('genes');
+    geneList.forEach(g => {
+        const label = document.createElement('label');
+        label.innerHTML = `<input type="checkbox" value="${g}"> ${g}`;
+        genesDiv.appendChild(label);
+    });
+
+    // Tab switching
+    function showTab(tabId) {
+        document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.getElementById(tabId).classList.add('active');
+        event.target.classList.add('active');
+    }
+
+    // Prediction function (simulated)
+    function predict() {
+        const antibiotic = document.getElementById('antibiotic').value;
+        const confidences = {
+            "Ciprofloxacin": 0.87,
+            "Ampicillin": 0.91,
+            "Gentamicin": 0.84,
+            "Ceftazidime": 0.79,
+            "Cefotaxime": 0.82
+        };
+        const conf = confidences[antibiotic];
+        const pred = conf > 0.5 ? "RESISTANT" : "SUSCEPTIBLE";
+
+        document.getElementById('predictionText').innerText = pred;
+        document.getElementById('confidence').innerText = `Confidence: ${Math.round(conf*100)}%`;
+        document.getElementById('progressBar').style.width = (conf*100)+'%';
+
+        // Importance bars
+        const importanceData = [
+            {gene:'gyrA', val:0.42},
+            {gene:'parC', val:0.28},
+            {gene:'ampC', val:0.15},
+            {gene:'blaTEM', val:0.10},
+            {gene:'tetA', val:0.05}
+        ];
+        let html = '';
+        importanceData.forEach(d => {
+            html += `<div class="bar-item"><span class="bar-label">${d.gene}</span><div class="bar-line"><div class="bar-fill" style="width:${d.val*100}%"></div></div></div>`;
+        });
+        document.getElementById('importanceBars').innerHTML = html;
+
+        document.getElementById('result').style.display = 'block';
+    }
+</script>
+</body>
+</html>
